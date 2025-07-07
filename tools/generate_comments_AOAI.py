@@ -2,10 +2,10 @@ import os, sys, pathlib
 from openai import AzureOpenAI # pip install openai>=1.14.0
 
 #  Azure client setup 
-endpoint        = os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/") + "/"
-subscription_key         = os.environ["AZURE_OPENAI_KEY"]
+endpoint = os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/") + "/"
+subscription_key = os.environ["AZURE_OPENAI_KEY"]
 deployment_name = os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"]
-api_version     = "2025-01-01-preview"      
+api_version = "2025-01-01-preview"      
 
 client = AzureOpenAI(
     azure_endpoint = endpoint,
@@ -50,7 +50,7 @@ SYSTEM_PROMPT = (
 def annotate_source(code: str) -> str:
     """Call the Azure OpenAI deployment and return the commented code."""
     response = client.chat.completions.create(
-        model     = DEPLOYMENT_NAME,    
+        model = deployment_name,    
         messages  = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user",   "content": code},
