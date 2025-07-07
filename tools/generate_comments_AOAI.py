@@ -1,92 +1,86 @@
-import os
-import sys
-import requests
+import os, sys, pathlib
+from openai import AzureOpenAI # pip install openai>=1.14.0
 
-API_KEY = os.getenv("AZURE_OPENAI_KEY")
-ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT").rstrip("/") + "/"  
-DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")  # gpt-4o
+#  Azure client setup 
+ENDPOINT        = os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/") + "/"
+API_KEY         = os.environ["AZURE_OPENAI_KEY"]
+DEPLOYMENT_NAME = os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"]
+API_VERSION     = "2024-12-01-preview"        # version shown in Foundry portal
 
-# Function to make the API call; builds URL for calling Azure OpenAI's gpt-4o; headers authenticate the request with the AOAI key
-def call_openai_to_comment(code: str, filename: str) -> str:
-    url = f"{ENDPOINT}openai/deployments/{DEPLOYMENT_NAME}/chat/completions?api-version=2025-01-01-preview"
-    headers = {
-        "Content-Type": "application/json",
-        "api-key": API_KEY
-    }
-    prompt = f"""
-You are a code-commenting assistant
+client = AzureOpenAI(
+    azure_endpoint = ENDPOINT,
+    api_key        = API_KEY,
+    api_version    = API_VERSION,
+)
 
-Your task:
-1. Insert brief, helpful `#`-style comments inline with the Python code below.  
-   – One short sentence per logical block or tricky line is enough.  
-2. Return only the updated source file – no markdown fences, no prose before or after.
+# Prompt template
+SYSTEM_PROMPT = (
+    # ────────── ROLE ──────────
+    "You are an expert Python reviewer tasked with:\n"
+    "• Adding concise, helpful inline comments.\n"
+    "• Emitting structured metadata lines that downstream tooling will turn into a doc page.\n\n"
 
-Preparing for future docs
-If you have extra explanations (title, summary, step-by-step, notes, links, etc.)  
-that belong in documentation rather than the code file, emit them as
-single-line metadata above the code using this syntax:
-# DOC_TITLE: <title>
-# DOC_SUMMARY: <summary>
-# DOC_STEPS: <step-by-step>
-# DOC_NOTES: <notes>
-# DOC_LINKS: <links>
+    # ────────── INLINE COMMENT RULES ──────────
+    "INLINE-COMMENT RULES:\n"
+    "1. Use `#` for short, line-level explanations.\n"
+    "2. Comments must be briefer than the code they annotate.\n"
+    "3. Do NOT wrap the file in markdown fences or add prose before/after.\n\n"
 
-Only inline #-comments stay with the code; anything starting with # DOC_ will be routed into the Markdown doc later
+    # ────────── DOC METADATA RULES ──────────
+    "DOC-METADATA RULES (optional, but encouraged):\n"
+    "• Place these *above* the code, one per line, starting with `# DOC_`.\n"
+    "  # DOC_TITLE:  One-line title for the doc page\n"
+    "  # DOC_BLURB:  Short tagline shown under the title\n"
+    "  # DOC_NOTE:   Free-form paragraph (repeatable) for background or tips\n"
+    "  # DOC_LINKS:  Markdown links to external resources (repeatable)\n"
+    "• Metadata lines will be stripped from the code and fed into a doc builder.\n\n"
 
-Use ### Heading text for major sections you want surfaced in docs; keep one-hash comments for short inline notes.
+    # ────────── STEP HEADINGS ──────────
+    "STEP HEADINGS:\n"
+    "• Use `### Step heading` *inside* the code to mark major sections.\n"
+    "• The doc builder will turn each heading into a numbered step with the "
+    "following code block.\n\n"
 
-Hard constraints:
-1. Output must be valid Python – no markdown fences (```), no HTML, no extra
-  wrappers of any kind; 
-  If you include ``` anywhere, or wrap the code in any markup, the answer is wrong.
+    # ────────── HARD CONSTRAINTS ──────────
+    "HARD CONSTRAINTS:\n"
+    "• Output must be syntactically valid Python.\n"
+    "• Absolutely no ``` fences, HTML, or extra wrappers.\n"
+)
 
-### BEGIN FILE
-{code}
-### END FILE
-"""
-
-    # Standard chat format payload. max_tokens=1000 can be increased if files are long
-    payload = {
-        "messages": [
-            {"role": "system", "content": "You are a helpful coding assistant who comments Python code clearly."},
-            {"role": "user", "content": prompt}
+def annotate_source(code: str) -> str:
+    """Call the Azure OpenAI deployment and return the commented code."""
+    response = client.chat.completions.create(
+        model     = DEPLOYMENT_NAME,    
+        messages  = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user",   "content": code},
         ],
-        "temperature": 0.3,
-        "max_tokens": 1000,
-    }
+        temperature = 0.3,
+        max_tokens  = 1000,
+    )
+    return response.choices[0].message.content
 
-    response = requests.post(url, headers=headers, json=payload)
-    if response.status_code == 200:
-        return response.json()["choices"][0]["message"]["content"]
-    else:
-        print("Request failed:", response.status_code)
-        print(response.text)
-        raise Exception("OpenAI API call failed.")
 
-def process_file(filepath: str, repo_folder: str):
-    full_path = os.path.join(repo_folder, filepath)
-    print(f"Reading file: {full_path}")
-    with open(full_path, "r") as f:
-        code = f.read()
+# File IO helpers
+def process_file(rel_path: str, repo_root: pathlib.Path) -> None:
+    file_path = repo_root / rel_path
+    print("▶ commenting", file_path)
+    original = file_path.read_text(encoding="utf-8")
+    commented = annotate_source(original)
+    file_path.write_text(commented, encoding="utf-8")
 
-    commented_code = call_openai_to_comment(code, filepath)
+def main() -> None:
+    if len(sys.argv) != 3:
+        print("usage: generate_comments_AOAI.py <updated_files.txt> <repo_root>")
+        sys.exit(1)
 
-    with open(full_path, "w") as f:
-        f.write(commented_code)
+    updated_list = pathlib.Path(sys.argv[1])
+    repo_root    = pathlib.Path(sys.argv[2])
 
-def main():
-    updated_files_list = sys.argv[1]  # Path to /tmp/updated_files.txt
-    repo_folder = sys.argv[2]     # Usually "AutoDocs"
-
-    print(f"Reading list of changed files from: {updated_files_list}")
-
-    with open(updated_files_list, "r") as f:
-        files = [line.strip() for line in f if line.strip().endswith(".py")]
-
-    print(f"Detected {len(files)} .py files to process:")
-    for fpath in files:
-        print(fpath)
-        process_file(fpath, repo_folder)
+    py_files = [ln.strip() for ln in updated_list.read_text().splitlines() if ln.strip().endswith(".py")]
+    print(f"Found {len(py_files)} Python file(s) to process.")
+    for rel in py_files:
+        process_file(rel, repo_root)
 
 if __name__ == "__main__":
     main()
