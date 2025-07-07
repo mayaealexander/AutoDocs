@@ -5,7 +5,7 @@ from openai import AzureOpenAI # pip install openai>=1.14.0
 ENDPOINT        = os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/") + "/"
 API_KEY         = os.environ["AZURE_OPENAI_KEY"]
 DEPLOYMENT_NAME = os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"]
-API_VERSION     = "2024-12-01-preview"        # version shown in Foundry portal
+API_VERSION     = "2025-01-01-preview"      
 
 client = AzureOpenAI(
     azure_endpoint = ENDPOINT,
