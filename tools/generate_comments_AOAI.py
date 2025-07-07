@@ -2,15 +2,15 @@ import os, sys, pathlib
 from openai import AzureOpenAI # pip install openai>=1.14.0
 
 #  Azure client setup 
-ENDPOINT        = os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/") + "/"
-API_KEY         = os.environ["AZURE_OPENAI_KEY"]
-DEPLOYMENT_NAME = os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"]
-API_VERSION     = "2025-01-01-preview"      
+endpoint        = os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/") + "/"
+subscription_key         = os.environ["AZURE_OPENAI_KEY"]
+deployment_name = os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"]
+api_version     = "2025-01-01-preview"      
 
 client = AzureOpenAI(
-    azure_endpoint = ENDPOINT,
-    api_key        = API_KEY,
-    api_version    = API_VERSION,
+    azure_endpoint = endpoint,
+    api_key        = subscription_key,
+    api_version    = api_version,
 )
 
 # Prompt template
