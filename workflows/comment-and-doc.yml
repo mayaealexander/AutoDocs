@@ -1,0 +1,60 @@
+name: Comment & Doc
+
+#Fire only when a commit to main touches a .py file in samples/
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'samples/**/*.py'
+
+jobs:
+
+  comment-samples:
+  #skip if this commit was made by the AI Comment Assistant
+    if: ${{ !contains(github.event.head_commit.message, '[skip comment]') }}
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write #allows committing/pushing back
+      pull-requests: write #allows creating PRs
+    
+    steps:
+      # 1 Checkout the repo
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install requests
+
+
+      - name: Build list of changed samples
+        run: |
+          git diff --name-only ${{ github.sha }} ${{ github.sha }}^ \
+          -- ':(glob)samples/**/*.py' > /tmp/updated_files.txt
+          echo "Files to comment:" 
+          cat /tmp/updated_files.txt
+
+
+      - name: Run AI commenting script
+        run: python tools/generate_comments_AOAI.py /tmp/updated_files.txt .
+        env:
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_KEY: ${{ secrets.AZURE_OPENAI_KEY }}
+          AZURE_OPENAI_DEPLOYMENT_NAME: ${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }}
+
+      - name: Create or update bot PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: "bot/auto-comment-${{ github.sha }}"
+          title: 'Add inline comments via AI assistant'
+          body: 'This PR was created by the AI Comment Assistant.'
+          commit-message: 'Add inline comments via AI assistant [skip comment]'
+          delete-branch: true
+
