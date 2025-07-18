@@ -25,6 +25,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Azure login (OIDC)
+        uses: azure/login@v1
+        with:
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          allow-no-subscriptions: true
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -47,9 +54,10 @@ jobs:
       - name: Run AI commenting script
         run: python tools/generate_comments_AOAI.py /tmp/updated_files.txt .
         env:
-          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
-          AZURE_OPENAI_KEY: ${{ secrets.AZURE_OPENAI_KEY }}
-          AZURE_OPENAI_DEPLOYMENT_NAME: ${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }}
+          AZURE_OPENAI_ENDPOINT:        ${{ vars.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_DEPLOYMENT_NAME: ${{ vars.AZURE_OPENAI_DEPLOYMENT_NAME }}
+          AZURE_TENANT_ID:              ${{ vars.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID:              ${{ vars.AZURE_CLIENT_ID }}
 
       - name: Create or update bot PR
         uses: peter-evans/create-pull-request@v6
