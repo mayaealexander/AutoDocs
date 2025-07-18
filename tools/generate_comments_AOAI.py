@@ -1,17 +1,21 @@
 import os, sys, pathlib
+from azure.identity import DefaultAzureCredential
 from openai import AzureOpenAI # pip install openai>=1.14.0
 
 #  Azure client setup 
 endpoint = os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/") + "/"
-subscription_key = os.environ["AZURE_OPENAI_KEY"]
 deployment_name = os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"]
-api_version = "2025-01-01-preview"      
+api_version = "2024-12-01-preview"      
+
+cred  = DefaultAzureCredential()
+token = lambda: cred.get_token("https://cognitiveservices.azure.com/.default").token
 
 client = AzureOpenAI(
-    azure_endpoint = endpoint,
-    api_key        = subscription_key,
-    api_version    = api_version,
+    azure_endpoint          = endpoint,
+    api_version             = api_version,
+    azure_ad_token_provider = token,   # <- bearer token obtained on each call
 )
+
 
 # Prompt template
 SYSTEM_PROMPT = (
@@ -64,7 +68,7 @@ def annotate_source(code: str) -> str:
 # File IO helpers
 def process_file(rel_path: str, repo_root: pathlib.Path) -> None:
     file_path = repo_root / rel_path
-    print("▶ commenting", file_path)
+    print("commenting", file_path)
     original = file_path.read_text(encoding="utf-8")
     commented = annotate_source(original)
     file_path.write_text(commented, encoding="utf-8")
