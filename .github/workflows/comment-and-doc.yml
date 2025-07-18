@@ -17,6 +17,7 @@ jobs:
     permissions:
       contents: write #allows committing/pushing back
       pull-requests: write #allows creating PRs
+      id-token: write #needed for OIDC token
     
     steps:
       # 1 Checkout the repo
@@ -26,7 +27,7 @@ jobs:
           fetch-depth: 0
 
       - name: Azure login (OIDC)
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           client-id: ${{ vars.AZURE_CLIENT_ID }}
