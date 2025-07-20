@@ -56,21 +56,48 @@ def extract_metadata(lines: list[str]) -> dict[str, list[str] | str]:
             break
     return meta
 
-def split_sections(lines: list[str]) -> list[tuple[str, list[str]]]:
-    """Return [(heading, code_lines)] blocks, incl. pre‑heading code as 'Prelude'."""
-    sections: list[tuple[str, list[str]]] = []
+def split_sections(lines: list[str]) -> list[tuple[str, list[str], list[str]]]:
+    """Return [(heading, summary_lines, code_lines)] blocks, incl. pre‑heading code as 'Prelude'.
+    summary_lines: contiguous leading # comments (not metadata) for each section.
+    code_lines: rest of the code in the section (comments removed).
+    """
+    sections: list[tuple[str, list[str], list[str]]] = []
     hdr: str = "Prelude"
     block: list[str] = []
     for ln in lines:
         if _is_meta(ln): #skip metadata lines entirely
             continue
         if m := STEP_RE.match(ln):
-            sections.append((hdr, block))
+            sections.append((hdr, [], block))  # summary will be extracted later
             hdr, block = m.group(1).strip(), []
         else:
             block.append(ln)
-    sections.append((hdr, block))
-    return sections
+    sections.append((hdr, [], block))
+
+    # Now, for each section, extract summary and code
+    def extract_summary_and_code(block: list[str]) -> tuple[list[str], list[str]]:
+        summary = []
+        code = []
+        in_summary = True
+        for ln in block:
+            if in_summary and ln.strip().startswith("#") and not _is_meta(ln):
+                summary.append(ln.lstrip("# ").rstrip())
+            elif ln.strip() == '' and in_summary:
+                # allow blank lines in summary
+                summary.append('')
+            else:
+                in_summary = False
+                code.append(ln)
+        # Remove trailing blank lines from summary
+        while summary and summary[-1].strip() == '':
+            summary.pop()
+        return summary, code
+
+    result = []
+    for hdr, _, block in sections:
+        summary, code = extract_summary_and_code(block)
+        result.append((hdr, summary, code))
+    return result
 
 
 def build_doc(sample: pathlib.Path, in_root: pathlib.Path, out_root: pathlib.Path) -> None:
@@ -81,17 +108,31 @@ def build_doc(sample: pathlib.Path, in_root: pathlib.Path, out_root: pathlib.Pat
         print(f"‑ Skipping {sample} (no DOC_TITLE)")
         return
 
-# filter metadata from full‑source accordion as well
+    # filter metadata from full‑source accordion as well
     clean_source = "\n".join(ln for ln in lines if not _is_meta(ln))
 
     # build step blocks
     step_md: list[str] = []
-    for idx, (hdr, code_lines) in enumerate(split_sections(lines), 1):
-        if not hdr or not code_lines:
+    sections = split_sections(lines)
+    # Prelude suppression: skip if first section is Prelude and has no real code
+    start_idx = 0
+    if sections:
+        prelude_hdr, prelude_summary, prelude_code = sections[0]
+        if prelude_hdr == "Prelude":
+            # Check if prelude_code is empty or only whitespace/comments
+            if not any(ln.strip() and not ln.strip().startswith('#') for ln in prelude_code):
+                start_idx = 1  # skip Prelude
+    for idx, (hdr, summary_lines, code_lines) in enumerate(sections[start_idx:], 1):
+        if not hdr or (not code_lines and not summary_lines):
             continue
+        summary_md = ("\n".join(summary_lines) + "\n") if summary_lines else ""
         snippet = "\n".join(code_lines)
         step_md.append(
-            f"### {idx}. {hdr}\n```python\n{snippet}\n```\n")
+            f"### {idx}.\u00A0{hdr}\n" +
+            (f"{summary_md}\n" if summary_md else "") +
+            (f"```python\n{snippet}\n```
+" if snippet.strip() else "")
+        )
 
     md = MD_TEMPLATE.format(
         source_rel   = sample.relative_to(in_root),
@@ -108,7 +149,8 @@ def build_doc(sample: pathlib.Path, in_root: pathlib.Path, out_root: pathlib.Pat
     dst = out_root / f"{sample.stem}.md"              # flat docs/ folder
     dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_text(md, encoding="utf-8")
-    print("wrote", dst)
+    action = "updated" if dst.exists() else "created"
+    print(f"{action} {dst}")
 
 
 def main() -> None:
