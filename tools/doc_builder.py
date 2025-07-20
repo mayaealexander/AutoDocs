@@ -31,6 +31,8 @@ _{summary}_
 
 ## Step-by-step walk-through
 {steps}
+
+{links}
 <details><summary>Full source</summary>
 
 ```python
@@ -78,9 +80,9 @@ def build(sample_path: pathlib.Path, input_root: pathlib.Path, output_root: path
     rendered = TEMPLATE.format(
         title=title or sample_path.stem,
         summary=summary or "",
-        notes="\n".join(notes),
+        notes="\n\n".join(f"- {n}" for n in notes),
         steps="\n".join(md_steps),
-        links="\n".join(links),
+        links="\n".join(f"* {l}" for l in links),
         full_source="\n".join(code),
         ts=datetime.date.today().isoformat()
     )

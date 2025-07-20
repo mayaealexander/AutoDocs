@@ -60,12 +60,28 @@ jobs:
           AZURE_TENANT_ID:              ${{ vars.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID:              ${{ vars.AZURE_CLIENT_ID }}
 
+      - name: Build markdown docs
+        run: |
+          #pass list of changed files to doc_builder
+          python tools/doc_builder.py $(cat /tmp/updated_files.txt)
+        env:
+          PYTHONPATH: tools
+
+      - name: Commit and push changes
+        run: |
+          git config user.name  "AI Comment Assistant"
+          git config user.email "mayaealexander@users.noreply.github.com"
+          git add -u           
+          git add docs/ || true 
+          git diff --cached --quiet || git commit -m "Add inline comments & docs [skip comment]"
+          git push origin HEAD
+    
       - name: Create or update bot PR
         uses: peter-evans/create-pull-request@v6
         with:
           branch: bot/auto-comment
-          title: 'Add inline comments via AI assistant'
-          body: 'This PR was created by the AI Comment Assistant.'
-          commit-message: 'Add inline comments via AI assistant [skip comment]'
+          title: 'Add inline comments and docs via AI assistant'
+          body: 'Auto-generated; please review'
+          commit-message: 'Add inline comments and docs via AI assistant [skip comment]'
           delete-branch: true
 
