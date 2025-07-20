@@ -59,7 +59,8 @@ def extract_metadata(lines: list[str]) -> dict[str, list[str] | str]:
 def split_sections(lines: list[str]) -> list[tuple[str, list[str]]]:
     """Return [(heading, code_lines)] blocks, incl. pre‑heading code as 'Prelude'."""
     sections: list[tuple[str, list[str]]] = []
-    hdr, block = "Prelude," []
+    hdr: str = "Prelude"
+    block: list[str] = []
     for ln in lines:
         if _is_meta(ln): #skip metadata lines entirely
             continue
