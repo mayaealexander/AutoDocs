@@ -12,7 +12,6 @@ class SimpleEnvironment:
 class RuleBasedAgent:
     def __init__(self):
         pass  
-
     def select_action(self, state):
         if state < 5:
             return 'increment'  
