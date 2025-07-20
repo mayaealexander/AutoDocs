@@ -8,7 +8,6 @@ class SimpleEnvironment:
             self.state -= 1
         return self.state
 
-
 class RuleBasedAgent:
     def __init__(self):
         pass
