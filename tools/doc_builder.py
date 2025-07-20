@@ -25,7 +25,7 @@ STEP_RE   = re.compile(r"^\s*###\s+(.*)")           # step headings
 TEMPLATE = """\
 # {title}
 
-_{summary}_
+{summary}
 
 {notes}
 
