@@ -1,126 +1,158 @@
 #!/usr/bin/env python
 """
-AutoDocs: Convert commented Python samples into Markdown documentation.
+AutoDocs – turn commented Python samples into Markdown docs.
 
-Usage:
-    python doc_builder.py [file1.py file2.py ...] [--input-root samples] [--output-root docs]
+Usage examples
+--------------
+# Build docs for all samples
+python tools/doc_builder.py
 
-- Scans Python files (default: in samples/)
-- Extracts DOC_TITLE / DOC_SUMMARY / DOC_STEPS / etc. lines
-- Converts every leading "### " inline comment into a step heading
-- Writes docs/<same-relative-path>.md wrapped in AUTO-GENERATED markers
+# Build docs only for files in a list (GitHub Action)
+python tools/doc_builder.py --list-file /tmp/updated_files.txt
 
-This script is designed to be called by a GitHub Action or manually.
+# Build docs for explicit files
+python tools/doc_builder.py samples/foo.py samples/bar.py
 """
 
-import pathlib, re, textwrap, datetime, argparse, sys
+from __future__ import annotations
+import pathlib, re, datetime, argparse, sys
 
-TITLE_RE  = re.compile(r"^#\s*DOC_TITLE:\s*(.+)", re.I)
-SUMMARY_RE  = re.compile(r"^#\s*DOC_SUMMARY:\s*(.+)", re.I)
-NOTES_RE   = re.compile(r"^#\s*DOC_NOTES:\s*(.+)", re.I)
-STEPS_RE   = re.compile(r"^#\s*DOC_STEPS:\s*(.+)", re.I)
-LINKS_RE   = re.compile(r"^#\s*DOC_LINKS:\s*(.+)", re.I)
-STEP_RE   = re.compile(r"^\s*###\s+(.*)")           # step headings
+# ── regexes ──────────────────────────────────────────────────────────────
+TITLE_RE   = re.compile(r"^#\s*DOC_TITLE:\s*(.+)",   re.I)
+SUMMARY_RE = re.compile(r"^#\s*DOC_(SUMMARY|BLURB):\s*(.+)", re.I)  # accept either tag
+NOTES_RE   = re.compile(r"^#\s*DOC_NOTES?:\s*(.+)",  re.I)
+LINKS_RE   = re.compile(r"^#\s*DOC_LINKS?:\s*(.+)",  re.I)
+STEP_RE    = re.compile(r"^\s*###\s+(.*)")           # headings inside code
 
-TEMPLATE = """\
+# ── markdown template ────────────────────────────────────────────────────
+MD_TEMPLATE = """\
+<!-- AUTO‑GENERATED doc for {source_rel} -->
 # {title}
 
-{summary}
+{summary_block}
 
-{notes}
+{notes_block}
 
-## Step-by-step walk-through
-{steps}
+## Step‑by‑step walk‑through
+{steps_block}
 
-{links}
+{links_block}
 <details><summary>Full source</summary>
 
 ```python
 {full_source}
 ```
-
 </details>
-Last updated: {ts}
+Last updated: {timestamp}
 """
+#Helper functions:
 
-def build(sample_path: pathlib.Path, input_root: pathlib.Path, output_root: pathlib.Path):
-    code = sample_path.read_text().splitlines()
-    title = summary = ""
-    notes = []
-    steps = []
-    links = []
+def extract_metadata(lines: list[str]) -> dict[str, list[str] | str]:
+    """Pull DOC_* tags from the top comments."""
+    meta: dict[str, list[str] | str] = {"notes": [], "links": []}
+    for ln in lines:
+        if m := TITLE_RE.match(ln):
+            meta["title"] = m.group(1).strip()
+        elif m := SUMMARY_RE.match(ln):
+            meta["summary"] = m.group(2).strip()
+        elif m := NOTES_RE.match(ln):
+            meta["notes"].append(m.group(1).strip())
+        elif m := LINKS_RE.match(ln):
+            meta["links"].append(m.group(1).strip())
+        elif not ln.startswith("#"): # real code starts → stop scanning
+            break
+    return meta
 
-    # Extract DOC_* metadata
-    for ln in code:
-        if (m:=TITLE_RE.match(ln)):   title  = m.group(1).strip(); continue
-        if (m:=SUMMARY_RE.match(ln)):   summary  = m.group(1).strip(); continue
-        if (m:=NOTES_RE.match(ln)):    notes.append(m.group(1).strip()); continue
-        if (m:=STEPS_RE.match(ln)):    steps.append(m.group(1).strip()); continue
-        if (m:=LINKS_RE.match(ln)):    links.append(m.group(1).strip()); continue
-
-    # Extract step headings and blocks
-    cur_head, cur_block = None, []
-    for ln in code:
-        if STEP_RE.match(ln):
-            if cur_head: steps.append((cur_head, "\n".join(cur_block)))
-            cur_head = STEP_RE.match(ln).group(1).strip()
-            cur_block = []
+def split_sections(lines: list[str]) -> list[tuple[str, list[str]]]:
+    """Return [(heading, code_lines)] blocks, incl. pre‑heading code as 'Prelude'."""
+    sections: list[tuple[str, list[str]]] = []
+    hdr, block = "Prelude", []
+    for ln in lines:
+        if m := STEP_RE.match(ln):
+            sections.append((hdr, block))
+            hdr, block = m.group(1).strip(), []
         else:
-            cur_block.append(ln)
-    if cur_head: steps.append((cur_head, "\n".join(cur_block)))
+            block.append(ln)
+    sections.append((hdr, block))
+    return sections
 
-    # Format steps for markdown
-    md_steps = []
-    for idx,(hd,blk) in enumerate([s for s in steps if isinstance(s, tuple)],1):
-        snippet = "\n".join(
-            l for l in blk.splitlines() if not NOTES_RE.match(l) and not TITLE_RE.match(l)
-        )
-        md_steps.append(f"### {idx}. {hd}\n```python\n{snippet}\n```\n")
+def render_markdown(meta: dict[str, list[str] | str],
+    sections: list[tuple[str, list[str]]],
+    source_rel: pathlib.Path,
+    full_source: str) -> str:
+    """Fill the MD template with formatted pieces."""
+    summary_block = f"_{meta.get('summary', '')}_\n" if meta.get("summary") else ""
+    notes_block = "\n".join(f"- {n}" for n in meta["notes"]) if meta["notes"] else ""
+    links_block = ("## Resources\n" +
+    "\n".join(f"* {l}" for l in meta["links"]) + "\n") if meta["links"] else ""
+    step_md: list[str] = []
+    for idx, (hdr, code_lines) in enumerate(sections, 1):
+        if not hdr or not code_lines:
+            continue
+        snippet = "\n".join(code_lines)
+        step_md.append(f"### {idx}. {hdr}\n```python\n{snippet}\n```\n")
 
-    rendered = TEMPLATE.format(
-        title=title or sample_path.stem,
-        summary=summary or "",
-        notes="\n\n".join(f"- {n}" for n in notes),
-        steps="\n".join(md_steps),
-        links="\n".join(f"* {l}" for l in links),
-        full_source="\n".join(code),
-        ts=datetime.date.today().isoformat()
+    return MD_TEMPLATE.format(
+        source_rel   = source_rel,
+        title        = meta.get("title", source_rel.stem),
+        summary_block= summary_block,
+        notes_block  = notes_block,
+        steps_block  = "\n".join(step_md),
+        links_block  = links_block,
+        full_source  = full_source,
+        timestamp    = datetime.date.today().isoformat(),
     )
 
-    out_path = output_root / sample_path.relative_to(input_root).with_suffix(".md")
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+def build_doc(sample: pathlib.Path, in_root: pathlib.Path, out_root: pathlib.Path) -> None:
+    """Convert one Python sample into its .md doc."""
+    lines = sample.read_text().splitlines()
+    meta = extract_metadata(lines)
+    if "title" not in meta:
+        print(f"‑ Skipping {sample} (no DOC_TITLE)")
+        return
 
-    banner = f"<!-- AUTO-GENERATED doc for {sample_path} -->"
-    content = f"{banner}\n{rendered}\n"
+    markdown = render_markdown(
+        meta      = meta,
+        sections  = split_sections(lines),
+        source_rel= sample.relative_to(in_root),
+        full_source="\n".join(lines),
+    )
 
-    out_path.write_text(content)
-    print("Wrote doc ->", out_path)
+    dst = out_root / sample.relative_to(in_root).with_suffix(".md")
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_text(markdown, encoding="utf-8")
+    print("wrote", dst)
 
 
-def main():
-    parser = argparse.ArgumentParser(description="AutoDocs: Convert commented Python samples into Markdown docs.")
-    parser.add_argument('files', nargs='*', help='Python files to process (default: all in samples/)')
-    parser.add_argument('--input-root', default='samples', help='Root directory for input samples')
-    parser.add_argument('--output-root', default='docs', help='Root directory for output docs')
-    args = parser.parse_args()
+def main() -> None:
+    ap = argparse.ArgumentParser(description= "Generate docs from commented samples")
+    ap.add_argument("files", nargs="*", help="Specific .py files to process")
+    ap.add_argument("--list-file", help="Text file of .py paths (one per line)")
+    ap.add_argument("--input-root", default="samples", help="Sample root dir")
+    ap.add_argument("--output-root", default="docs/autodocs", help="Docs output dir")
+    args = ap.parse_args()
+    in_root  = pathlib.Path(args.input_root)
+    out_root = pathlib.Path(args.output_root)
 
-    input_root = pathlib.Path(args.input_root)
-    output_root = pathlib.Path(args.output_root)
+# Build list of files to process
+    paths: list[pathlib.Path] = []
+    if args.list_file:
+        paths += [pathlib.Path(p.strip())
+            for p in pathlib.Path(args.list_file).read_text().splitlines()
+            if p.strip()]
+    paths += [pathlib.Path(p) for p in args.files]
+    if not paths:
+        paths = list(in_root.rglob("*.py"))
 
-    if args.files:
-        files = [pathlib.Path(f) for f in args.files]
-    else:
-        files = list(input_root.rglob('*.py'))
-
-    if not files:
-        print("No Python files found to process.")
+    if not paths:
+        print("No Python files to process.")
         sys.exit(0)
 
-    for f in files:
+    for fp in paths:
         try:
-            build(f, input_root, output_root)
-        except Exception as e:
-            print(f"Failed to process {f}: {e}")
+            build_doc(fp, in_root, out_root)
+        except Exception as exc:
+            print(f"Failed on {fp}: {exc}")
 
 if __name__ == "__main__":
     main()
