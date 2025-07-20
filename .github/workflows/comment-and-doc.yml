@@ -61,11 +61,8 @@ jobs:
           AZURE_CLIENT_ID:              ${{ vars.AZURE_CLIENT_ID }}
 
       - name: Build markdown docs
-        run: |
-          #pass list of changed files to doc_builder
-          python tools/doc_builder.py $(cat /tmp/updated_files.txt)
-        env:
-          PYTHONPATH: tools
+        run: python tools/doc_builder.py --list-file /tmp/updated_files.txt
+   
 
       - name: Commit and push changes
         run: |
