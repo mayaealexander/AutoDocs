@@ -26,3 +26,5 @@ for step in range(10):
     action = agent.select_action(env.state)  
     new_state = env.step(action)        
     print(f"Step {step+1}: Action={action}, State={new_state}")  
+
+    
