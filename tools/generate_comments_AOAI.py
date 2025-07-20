@@ -71,16 +71,6 @@ def process_file(rel_path: str, repo_root: pathlib.Path) -> None:
     print("commenting", file_path)
     original = file_path.read_text(encoding="utf-8")
     commented = annotate_source(original)
-
-    # DEBUG – show first few lines
-    print("‑‑‑ preview returned ‑‑‑")
-    print("\n".join(commented.splitlines()[:15]))
-    print("‑‑‑ end preview ‑‑‑")
-
-    if commented.strip() == original.strip():
-        print("⚠️  Model returned identical content – skipping write")
-        return
-    
     file_path.write_text(commented, encoding="utf-8")
 
 def main() -> None:
