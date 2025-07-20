@@ -34,7 +34,7 @@ SYSTEM_PROMPT = (
     "DOC-METADATA RULES (optional, but encouraged):\n"
     "• Place these *above* the code, one per line, starting with `# DOC_`.\n"
     "  # DOC_TITLE:  One-line title for the doc page\n"
-    "  # DOC_BLURB:  Short tagline shown under the title\n"
+    "  # DOC_SUMMARY:  Short tagline shown under the title\n"
     "  # DOC_NOTE:   Free-form paragraph (repeatable) for background or tips\n"
     "  # DOC_LINKS:  Markdown links to external resources (repeatable)\n"
     "• Metadata lines will be stripped from the code and fed into a doc builder.\n\n"
