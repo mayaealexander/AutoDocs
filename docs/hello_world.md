@@ -1,27 +1,29 @@
 <!-- AUTO‑GENERATED doc for hello_world.py -->
-# Hello World Example in Python
+# Printing Output in Python
 
-_Simple script to print messages to the console._
+_Simple examples of using print statements in Python._
 
 
-- This is a classic starting point for learning Python syntax.
+- The print() function outputs text to the console.
 
 ## Step‑by‑step walk‑through
-### 1. Print greetings to the console
+### 1. Print greetings and test message
 ```python
-print("Hello, world!")  # Output a greeting message
-print("test 123")       # Output a test message
+print("Hello, world!")  # Print a greeting message
+print("test 123")       # Print a test message with numbers
 ```
 
 
+## Resources
+* [Python print() documentation](https://docs.python.org/3/library/functions.html#print)
 
 <details><summary>Full source</summary>
 
 ```python
 
-### Print greetings to the console
-print("Hello, world!")  # Output a greeting message
-print("test 123")       # Output a test message
+### Print greetings and test message
+print("Hello, world!")  # Print a greeting message
+print("test 123")       # Print a test message with numbers
 ```
 </details>
 Last updated: 2025-07-21
