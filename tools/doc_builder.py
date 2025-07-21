@@ -6,7 +6,7 @@ AutoDocs – turn commented Python samples into Markdown docs (docs/ folder).
 from __future__ import annotations
 import argparse, datetime, pathlib, re, sys
 
-# ── regex patterns ────────────────────────────────────────────────────────────
+# regex patterns
 TITLE_RE   = re.compile(r"^#\s*DOC_TITLE:\s*(.+)",            re.I)
 SUMMARY_RE = re.compile(r"^#\s*DOC_(SUMMARY|BLURB):\s*(.+)",  re.I)
 NOTES_RE   = re.compile(r"^#\s*DOC_NOTES?:\s*(.+)",           re.I)
@@ -17,7 +17,7 @@ STEP_RE    = re.compile(r"^\s*###\s+(.*)")                    # ### Step heading
 def _is_meta(line: str) -> bool:
     return any(r.match(line) for r in (TITLE_RE, SUMMARY_RE, NOTES_RE, LINKS_RE))
 
-# ── Markdown template ─────────────────────────────────────────────────────────
+# Markdown template
 MD_TEMPLATE = """\
 <!-- AUTO‑GENERATED doc for {source_rel} -->
 # {title}
@@ -38,6 +38,7 @@ MD_TEMPLATE = """\
 </details>
 Last updated: {timestamp}
 """
+
 #Helper functions:
 
 def extract_metadata(lines: list[str]) -> dict[str, list[str] | str]:
@@ -74,7 +75,7 @@ def split_sections(lines: list[str]) -> list[tuple[str, list[str], list[str]]]:
             block.append(ln)
     sections.append((hdr, [], block))
 
-    # Now, for each section, extract summary and code
+    # Extract summary and code for each section
     def extract_summary_and_code(block: list[str]) -> tuple[list[str], list[str]]:
         summary = []
         code = []
