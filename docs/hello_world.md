@@ -1,16 +1,16 @@
 <!-- AUTO‑GENERATED doc for hello_world.py -->
-# Print "Hello, world!" in Python
+# Hello World Example in Python
 
-_The classic first program to display text output._
+_Simple script to print messages to the console._
 
 
-- This example demonstrates how to use the built-in print function in Python.
+- This is a classic starting point for learning Python syntax.
 
 ## Step‑by‑step walk‑through
-### 1. Prelude
+### 1. Print greetings to the console
 ```python
-
-print("Hello, world!")  # Output greeting to the console
+print("Hello, world!")  # Output a greeting message
+print("test 123")       # Output a test message
 ```
 
 
@@ -19,7 +19,9 @@ print("Hello, world!")  # Output greeting to the console
 
 ```python
 
-print("Hello, world!")  # Output greeting to the console
+### Print greetings to the console
+print("Hello, world!")  # Output a greeting message
+print("test 123")       # Output a test message
 ```
 </details>
-Last updated: 2025-07-20
+Last updated: 2025-07-21
