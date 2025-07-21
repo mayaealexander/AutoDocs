@@ -71,7 +71,6 @@ jobs:
           git add -u           
           git add docs/ || true 
           git diff --cached --quiet || git commit -m "Add inline comments & docs [skip comment]"
-          git push origin HEAD
     
       - name: Create or update bot PR
         uses: peter-evans/create-pull-request@v6
