@@ -200,7 +200,7 @@ def build_doc(sample: pathlib.Path, in_root: pathlib.Path, out_root: pathlib.Pat
         source_rel   = sample.relative_to(in_root),
         title        = meta.get("title", sample.stem),
         summary_block= f"_{meta.get('summary','')}_\n" if meta.get("summary") else "",
-        notes_block  = "\n".join(f"- {n}" for n in meta["notes"]) if meta["notes"] else "",
+        notes_block  = ("\n\n**Notes:**\n" + "\n".join(f"> {n}" for n in meta["notes"]) + "\n") if meta["notes"] else "",
         steps_block  = "\n".join(step_md),
         links_block  = ("## Resources\n" +
                     "\n".join(f"* {l}" for l in meta["links"]) + "\n") if meta["links"] else "",
