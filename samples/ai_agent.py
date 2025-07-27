@@ -1,6 +1,8 @@
 # DOC_TITLE: Simple Environment and Rule-Based Agent Example
 # DOC_SUMMARY: Demonstrates a minimal agent-environment loop with state updates and rule-based action selection.
 # DOC_NOTE: This example shows how an agent can interact with an environment by choosing actions based on the current state.
+# DOC_LINKS: [Python Classes](https://docs.python.org/3/tutorial/classes.html)
+# DOC_LINKS: [Reinforcement Learning Basics](https://spinningup.openai.com/en/latest/spinningup/rl_intro.html)
 # DOC_STEP_SUMMARY: Defines a simple environment class that maintains an integer state and updates it based on increment or decrement actions.
 
 ### Define the environment class
