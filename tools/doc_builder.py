@@ -18,7 +18,7 @@ STEP_SUMMARY_RE = re.compile(r"^#\s*DOC_STEP_SUMMARY:\s*(.+)", re.I)
 
 # helper: any metadata line?
 def _is_meta(line: str) -> bool:
-    return any(r.match(line) for r in (TITLE_RE, SUMMARY_RE, NOTES_RE, LINKS_RE))
+    return any(r.match(line) for r in (TITLE_RE, SUMMARY_RE, NOTES_RE, LINKS_RE, STEP_SUMMARY_RE))
 
 def validate_links(links: list[str]) -> list[tuple[str, str, bool]]:
     """Validate links and return (link_text, url, is_valid) tuples."""
