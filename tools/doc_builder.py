@@ -5,6 +5,8 @@ AutoDocs – turn commented Python samples into Markdown docs (docs/ folder).
 
 from __future__ import annotations
 import argparse, datetime, pathlib, re, sys
+import requests
+from urllib.parse import urlparse
 
 # regex patterns
 TITLE_RE   = re.compile(r"^#\s*DOC_TITLE:\s*(.+)",            re.I)
@@ -16,6 +18,33 @@ STEP_RE    = re.compile(r"^\s*###\s+(.*)")                    # ### Step heading
 # helper: any metadata line?
 def _is_meta(line: str) -> bool:
     return any(r.match(line) for r in (TITLE_RE, SUMMARY_RE, NOTES_RE, LINKS_RE))
+
+def validate_links(links: list[str]) -> list[tuple[str, str, bool]]:
+    """Validate links and return (link_text, url, is_valid) tuples."""
+    results = []
+    url_pattern = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
+    
+    for link in links:
+        match = url_pattern.match(link.strip())
+        if match:
+            link_text, url = match.groups()
+            is_valid = False
+            try:
+                # Add scheme if missing
+                if not urlparse(url).scheme:
+                    url = 'https://' + url
+                
+                response = requests.head(url, timeout=10, allow_redirects=True)
+                is_valid = response.status_code < 400
+            except Exception as e:
+                print(f"Warning: Could not validate link '{link_text}' ({url}): {e}")
+            
+            results.append((link_text, url, is_valid))
+        else:
+            print(f"Warning: Invalid link format: {link}")
+            results.append((link, "", False))
+    
+    return results
 
 # Markdown template
 MD_TEMPLATE = """\
@@ -100,6 +129,20 @@ def split_sections(lines: list[str]) -> list[tuple[str, list[str], list[str]]]:
         result.append((hdr, summary, code))
     return result
 
+    import re
+    def remove_inline_comments(line: str) -> str:
+        # Remove comments not inside strings
+        # This is a simple approach and may not handle all edge cases
+        in_single = in_double = False
+        for i, c in enumerate(line):
+            if c == '"' and not in_single:
+                in_double = not in_double
+            elif c == "'" and not in_double:
+                in_single = not in_single
+            elif c == '#' and not in_single and not in_double:
+                return line[:i].rstrip()
+        return line.rstrip()
+
 
 def build_doc(sample: pathlib.Path, in_root: pathlib.Path, out_root: pathlib.Path) -> None:
     """Convert one Python sample into its .md doc."""
@@ -126,10 +169,34 @@ def build_doc(sample: pathlib.Path, in_root: pathlib.Path, out_root: pathlib.Pat
     for idx, (hdr, summary_lines, code_lines) in enumerate(sections[start_idx:], 1):
         if not hdr or (not code_lines and not summary_lines):
             continue
-        summary_md = ("\n".join(summary_lines) + "\n") if summary_lines else ""
-        snippet = "\n".join(code_lines)
+        
+        # Extract inline comments from code and combine with leading comments
+        inline_comments = []
+        clean_code_lines = []
+        for line in code_lines:
+            # Check for inline comments (after code, before end of line)
+            if '#' in line and not line.strip().startswith('#'):
+                # Split on # and take the comment part
+                code_part, comment_part = line.split('#', 1)
+                if code_part.strip():  # Only if there's actual code
+                    clean_code_lines.append(code_part.rstrip())
+                    if comment_part.strip():
+                        inline_comments.append(comment_part.strip())
+                else:
+                    # Line is just a comment, skip it
+                    if comment_part.strip():
+                        inline_comments.append(comment_part.strip())
+            else:
+                # No inline comment, keep the line as is
+                clean_code_lines.append(line)
+        
+        # Combine leading comments with inline comments for summary
+        all_comments = summary_lines + inline_comments
+        summary_md = (" ".join(all_comments).strip() + "\n") if all_comments else ""
+        
+        snippet = "\n".join(clean_code_lines)
         step_md.append(
-            f"Step {idx}: {hdr}\n"
+            f"### Step {idx}: {hdr}\n"
             + (f"{summary_md}\n" if summary_md else "")
             + (f"```python\n{snippet}\n```\n" if snippet.strip() else "")
         )
@@ -145,6 +212,18 @@ def build_doc(sample: pathlib.Path, in_root: pathlib.Path, out_root: pathlib.Pat
         full_source  = clean_source,
         timestamp    = datetime.date.today().isoformat(),
     )
+
+    # Validate links and report broken ones
+    if meta["links"]:
+        print(f"Validating {len(meta['links'])} links for {sample.name}...")
+        link_results = validate_links(meta["links"])
+        broken_links = [(text, url) for text, url, is_valid in link_results if not is_valid]
+        if broken_links:
+            print(f"  ⚠️  Broken links found:")
+            for text, url in broken_links:
+                print(f"     - {text}: {url}")
+        else:
+            print(f"  ✅ All links are valid")
 
     dst = out_root / f"{sample.stem}.md"              # flat docs/ folder
     dst.parent.mkdir(parents=True, exist_ok=True)
