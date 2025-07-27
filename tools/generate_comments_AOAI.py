@@ -48,6 +48,14 @@ SYSTEM_PROMPT = (
     "• The doc builder will turn each heading into a numbered step with the "
     "following code block.\n\n"
 
+    # ────────── STEP SUMMARY METADATA ──────────
+    "STEP SUMMARY METADATA:\n"
+    "• For each step (after each `### Step heading`), add a `# DOC_STEP_SUMMARY:` line.\n"
+    "• This should be a 1-2 sentence summary explaining what the step accomplishes.\n"
+    "• Focus on the purpose and outcome, not line-by-line details.\n"
+    "• Example: `# DOC_STEP_SUMMARY: This step defines a rule-based agent that chooses actions based on the current state.`\n"
+    "• The step summary will be used in the documentation, not the inline comments.\n\n"
+
     # ────────── COMMENT QUALITY GUIDELINES ──────────
     "COMMENT QUALITY:\n"
     "• Write comments that flow together when combined.\n"

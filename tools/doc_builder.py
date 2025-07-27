@@ -14,6 +14,7 @@ SUMMARY_RE = re.compile(r"^#\s*DOC_(SUMMARY|BLURB):\s*(.+)",  re.I)
 NOTES_RE   = re.compile(r"^#\s*DOC_NOTES?:\s*(.+)",           re.I)
 LINKS_RE   = re.compile(r"^#\s*DOC_LINKS?:\s*(.+)",           re.I)
 STEP_RE    = re.compile(r"^\s*###\s+(.*)")                    # ### Step heading
+STEP_SUMMARY_RE = re.compile(r"^#\s*DOC_STEP_SUMMARY:\s*(.+)", re.I)
 
 # helper: any metadata line?
 def _is_meta(line: str) -> bool:
@@ -86,23 +87,30 @@ def extract_metadata(lines: list[str]) -> dict[str, list[str] | str]:
             break
     return meta
 
-def split_sections(lines: list[str]) -> list[tuple[str, list[str], list[str]]]:
-    """Return [(heading, summary_lines, code_lines)] blocks, incl. pre‑heading code as 'Prelude'.
+def split_sections(lines: list[str]) -> list[tuple[str, list[str], list[str], str]]:
+    """Return [(heading, summary_lines, code_lines, step_summary)] blocks, incl. pre‑heading code as 'Prelude'.
     summary_lines: contiguous leading # comments (not metadata) for each section.
     code_lines: rest of the code in the section (comments removed).
+    step_summary: DOC_STEP_SUMMARY metadata for the section.
     """
-    sections: list[tuple[str, list[str], list[str]]] = []
+    sections: list[tuple[str, list[str], list[str], str]] = []
     hdr: str = "Prelude"
     block: list[str] = []
+    current_step_summary: str = ""
+    
     for ln in lines:
         if _is_meta(ln): #skip metadata lines entirely
+            # Check if this is a step summary for the current section
+            if m := STEP_SUMMARY_RE.match(ln):
+                current_step_summary = m.group(1).strip()
             continue
         if m := STEP_RE.match(ln):
-            sections.append((hdr, [], block))  # summary will be extracted later
+            sections.append((hdr, [], block, current_step_summary))  # summary will be extracted later
             hdr, block = m.group(1).strip(), []
+            current_step_summary = ""  # Reset for next section
         else:
             block.append(ln)
-    sections.append((hdr, [], block))
+    sections.append((hdr, [], block, current_step_summary))
 
     # Extract summary and code for each section
     def extract_summary_and_code(block: list[str]) -> tuple[list[str], list[str]]:
@@ -124,9 +132,9 @@ def split_sections(lines: list[str]) -> list[tuple[str, list[str], list[str]]]:
         return summary, code
 
     result = []
-    for hdr, _, block in sections:
+    for hdr, _, block, step_summary in sections:
         summary, code = extract_summary_and_code(block)
-        result.append((hdr, summary, code))
+        result.append((hdr, summary, code, step_summary))
     return result
 
     import re
@@ -161,73 +169,31 @@ def build_doc(sample: pathlib.Path, in_root: pathlib.Path, out_root: pathlib.Pat
     # Prelude suppression: skip if first section is Prelude and has no real code
     start_idx = 0
     if sections:
-        prelude_hdr, prelude_summary, prelude_code = sections[0]
+        prelude_hdr, prelude_summary, prelude_code, prelude_step_summary = sections[0]
         if prelude_hdr == "Prelude":
             # Check if prelude_code is empty or only whitespace/comments
             if not any(ln.strip() and not ln.strip().startswith('#') for ln in prelude_code):
                 start_idx = 1  # skip Prelude
-    for idx, (hdr, summary_lines, code_lines) in enumerate(sections[start_idx:], 1):
+    for idx, (hdr, summary_lines, code_lines, step_summary) in enumerate(sections[start_idx:], 1):
         if not hdr or (not code_lines and not summary_lines):
             continue
         
         # Clean the header - remove any existing numbering like "Step 1: " or "1. "
         clean_header = re.sub(r'^(Step \d+:\s*|\d+\.\s*)', '', hdr.strip())
         
-        # Extract inline comments from code and combine with leading comments
-        inline_comments = []
-        clean_code_lines = []
-        for line in code_lines:
-            # Check for inline comments (after code, before end of line)
-            if '#' in line and not line.strip().startswith('#'):
-                # Split on # and take the comment part
-                code_part, comment_part = line.split('#', 1)
-                if code_part.strip():  # Only if there's actual code
-                    clean_code_lines.append(code_part.rstrip())
-                    if comment_part.strip():
-                        inline_comments.append(comment_part.strip())
-                else:
-                    # Line is just a comment, skip it
-                    if comment_part.strip():
-                        inline_comments.append(comment_part.strip())
-            else:
-                # No inline comment, keep the line as is
-                clean_code_lines.append(line)
+        # Keep the original code lines with inline comments intact
+        snippet = "\n".join(code_lines)
         
-        # Combine leading comments with inline comments for summary
-        all_comments = summary_lines + inline_comments
-        
-        # Format summary as proper sentences
-        if all_comments:
-            # Join comments and create a coherent summary
-            combined_text = ' '.join(all_comments)
-            # Clean up the text and ensure it reads as a sentence
-            summary_md = combined_text.strip()
-            
-            # Remove redundant phrases and improve flow
-            # Replace common redundant patterns
-            summary_md = re.sub(r'\b(Initialize|Set|Create)\s+\w+\s+to\s+\w+\s+and\s+(Initialize|Set|Create)\s+\w+\s+to\s+\w+', 
-                               lambda m: m.group(1) + ' ' + m.group(2), summary_md)
-            
-            # Combine related increment/decrement actions
-            summary_md = re.sub(r'(Increase|Increment)\s+\w+\s+by\s+\d+\s+and\s+(Decrease|Decrement)\s+\w+\s+by\s+\d+', 
-                               'Update state based on action', summary_md)
-            
-            # Capitalize first letter if needed
-            if summary_md and not summary_md[0].isupper():
-                summary_md = summary_md[0].upper() + summary_md[1:]
-            
-            # Ensure it ends with proper punctuation
-            if summary_md and not summary_md[-1] in '.!?':
-                summary_md += '.'
-            
-            summary_md += '\n'
+        # Use the step summary from metadata if available, otherwise fall back to simple header
+        if step_summary:
+            summary_text = step_summary
         else:
-            summary_md = ""
+            # Fallback: create a simple summary from the header
+            summary_text = f"This step {clean_header.lower().replace('define', 'defines').replace('create', 'creates').replace('run', 'runs').replace('execute', 'executes')}."
         
-        snippet = "\n".join(clean_code_lines)
         step_md.append(
             f"### Step {idx}: {clean_header}\n"
-            + (f"{summary_md}\n" if summary_md else "")
+            + f"{summary_text}\n\n"
             + (f"```python\n{snippet}\n```\n" if snippet.strip() else "")
         )
 
