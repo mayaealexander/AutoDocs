@@ -47,6 +47,18 @@ def validate_links(links: list[str]) -> list[tuple[str, str, bool]]:
     
     return results
 
+def remove_inline_comments(line: str) -> str:
+    """Remove inline comments from a line, preserving string literals."""
+    in_single = in_double = False
+    for i, c in enumerate(line):
+        if c == '"' and not in_single:
+            in_double = not in_double
+        elif c == "'" and not in_double:
+            in_single = not in_single
+        elif c == '#' and not in_single and not in_double:
+            return line[:i].rstrip()
+    return line.rstrip()
+
 # Markdown template
 MD_TEMPLATE = """\
 <!-- AUTO‑GENERATED doc for {source_rel} -->
@@ -136,19 +148,6 @@ def split_sections(lines: list[str]) -> list[tuple[str, list[str], list[str], st
         summary, code = extract_summary_and_code(block)
         result.append((hdr, summary, code, step_summary))
     return result
-
-    import re
-    def remove_inline_comments(line: str) -> str:
-        """Remove inline comments from a line, preserving string literals."""
-        in_single = in_double = False
-        for i, c in enumerate(line):
-            if c == '"' and not in_single:
-                in_double = not in_double
-            elif c == "'" and not in_double:
-                in_single = not in_single
-            elif c == '#' and not in_single and not in_double:
-                return line[:i].rstrip()
-        return line.rstrip()
 
 
 def build_doc(sample: pathlib.Path, in_root: pathlib.Path, out_root: pathlib.Path) -> None:
