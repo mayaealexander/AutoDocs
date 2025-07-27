@@ -139,8 +139,7 @@ def split_sections(lines: list[str]) -> list[tuple[str, list[str], list[str], st
 
     import re
     def remove_inline_comments(line: str) -> str:
-        # Remove comments not inside strings
-        # This is a simple approach and may not handle all edge cases
+        """Remove inline comments from a line, preserving string literals."""
         in_single = in_double = False
         for i, c in enumerate(line):
             if c == '"' and not in_single:
@@ -181,8 +180,9 @@ def build_doc(sample: pathlib.Path, in_root: pathlib.Path, out_root: pathlib.Pat
         # Clean the header - remove any existing numbering like "Step 1: " or "1. "
         clean_header = re.sub(r'^(Step \d+:\s*|\d+\.\s*)', '', hdr.strip())
         
-        # Keep the original code lines with inline comments intact
-        snippet = "\n".join(code_lines)
+        # Remove inline comments from code lines for step blocks (keep full source intact)
+        clean_code_lines = [remove_inline_comments(line) for line in code_lines]
+        snippet = "\n".join(clean_code_lines)
         
         # Use the step summary from metadata if available, otherwise fall back to simple header
         if step_summary:
