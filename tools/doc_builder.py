@@ -170,6 +170,9 @@ def build_doc(sample: pathlib.Path, in_root: pathlib.Path, out_root: pathlib.Pat
         if not hdr or (not code_lines and not summary_lines):
             continue
         
+        # Clean the header - remove any existing numbering like "Step 1: " or "1. "
+        clean_header = re.sub(r'^(Step \d+:\s*|\d+\.\s*)', '', hdr.strip())
+        
         # Extract inline comments from code and combine with leading comments
         inline_comments = []
         clean_code_lines = []
@@ -192,11 +195,38 @@ def build_doc(sample: pathlib.Path, in_root: pathlib.Path, out_root: pathlib.Pat
         
         # Combine leading comments with inline comments for summary
         all_comments = summary_lines + inline_comments
-        summary_md = (" ".join(all_comments).strip() + "\n") if all_comments else ""
+        
+        # Format summary as proper sentences
+        if all_comments:
+            # Join comments and create a coherent summary
+            combined_text = ' '.join(all_comments)
+            # Clean up the text and ensure it reads as a sentence
+            summary_md = combined_text.strip()
+            
+            # Remove redundant phrases and improve flow
+            # Replace common redundant patterns
+            summary_md = re.sub(r'\b(Initialize|Set|Create)\s+\w+\s+to\s+\w+\s+and\s+(Initialize|Set|Create)\s+\w+\s+to\s+\w+', 
+                               lambda m: m.group(1) + ' ' + m.group(2), summary_md)
+            
+            # Combine related increment/decrement actions
+            summary_md = re.sub(r'(Increase|Increment)\s+\w+\s+by\s+\d+\s+and\s+(Decrease|Decrement)\s+\w+\s+by\s+\d+', 
+                               'Update state based on action', summary_md)
+            
+            # Capitalize first letter if needed
+            if summary_md and not summary_md[0].isupper():
+                summary_md = summary_md[0].upper() + summary_md[1:]
+            
+            # Ensure it ends with proper punctuation
+            if summary_md and not summary_md[-1] in '.!?':
+                summary_md += '.'
+            
+            summary_md += '\n'
+        else:
+            summary_md = ""
         
         snippet = "\n".join(clean_code_lines)
         step_md.append(
-            f"### Step {idx}: {hdr}\n"
+            f"### Step {idx}: {clean_header}\n"
             + (f"{summary_md}\n" if summary_md else "")
             + (f"```python\n{snippet}\n```\n" if snippet.strip() else "")
         )
@@ -219,11 +249,11 @@ def build_doc(sample: pathlib.Path, in_root: pathlib.Path, out_root: pathlib.Pat
         link_results = validate_links(meta["links"])
         broken_links = [(text, url) for text, url, is_valid in link_results if not is_valid]
         if broken_links:
-            print(f"  ⚠️  Broken links found:")
+            print(f" Broken links found:")
             for text, url in broken_links:
                 print(f"     - {text}: {url}")
         else:
-            print(f"  ✅ All links are valid")
+            print(f" All links are valid")
 
     dst = out_root / f"{sample.stem}.md"              # flat docs/ folder
     dst.parent.mkdir(parents=True, exist_ok=True)

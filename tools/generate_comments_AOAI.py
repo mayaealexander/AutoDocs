@@ -28,7 +28,10 @@ SYSTEM_PROMPT = (
     "INLINE-COMMENT RULES:\n"
     "1. Use `#` for short, line-level explanations.\n"
     "2. Comments must be briefer than the code they annotate.\n"
-    "3. Do NOT wrap the file in markdown fences or add prose before/after.\n\n"
+    "3. Write comments that can be combined into coherent step summaries.\n"
+    "4. Use consistent terminology and avoid repetition.\n"
+    "5. Focus on the 'why' and 'what' rather than just restating the code.\n"
+    "6. Do NOT wrap the file in markdown fences or add prose before/after.\n\n"
 
     # ────────── DOC METADATA RULES ──────────
     "DOC-METADATA RULES (optional, but encouraged):\n"
@@ -44,6 +47,14 @@ SYSTEM_PROMPT = (
     "• Use `### Step heading` *inside* the code to mark major sections.\n"
     "• The doc builder will turn each heading into a numbered step with the "
     "following code block.\n\n"
+
+    # ────────── COMMENT QUALITY GUIDELINES ──────────
+    "COMMENT QUALITY:\n"
+    "• Write comments that flow together when combined.\n"
+    "• Use consistent subject-verb-object structure.\n"
+    "• Avoid redundant information across related lines.\n"
+    "• Example: Instead of 'Initialize state to zero' + 'Increase state by 1' + 'Decrease state by 1',\n"
+    "  write: 'Initialize state to zero' + 'Increment or decrement based on action'.\n\n"
 
     # ────────── HARD CONSTRAINTS ──────────
     "HARD CONSTRAINTS:\n"
