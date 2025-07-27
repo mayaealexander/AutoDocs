@@ -8,7 +8,7 @@ _Demonstrates a minimal agent-environment loop with state updates and rule-based
 
 ## Step‑by‑step walk‑through
 ### Step 1: Define the environment class
-Implements a rule-based agent that chooses to increment the state until a threshold is reached.
+Defines a simple environment class that maintains an integer state and updates it based on increment or decrement actions.
 
 ```python
 class SimpleEnvironment:
@@ -22,11 +22,10 @@ class SimpleEnvironment:
             self.state -= 1
         return self.state
 
-
 ```
 
 ### Step 2: Define the rule-based agent class
-Instantiates the environment and agent, then runs a loop where the agent selects actions and the environment updates its state.
+Implements a rule-based agent that chooses to increment the state until a threshold is reached.
 
 ```python
 class RuleBasedAgent:
@@ -38,11 +37,10 @@ class RuleBasedAgent:
             return 'increment'
         return 'decrement'
 
-
 ```
 
 ### Step 3: Run agent-environment interaction loop
-This step runs agent-environment interaction loop.
+Instantiates the environment and agent, then runs a loop where the agent selects actions and the environment updates its state.
 
 ```python
 env = SimpleEnvironment()
@@ -55,6 +53,9 @@ for step in range(10):
 ```
 
 
+## Resources
+* [Python Classes](https://docs.python.org/3/tutorial/classes.html)
+* [Reinforcement Learning Basics](https://spinningup.openai.com/en/latest/spinningup/rl_intro.html)
 
 <details><summary>Full source</summary>
 
@@ -72,7 +73,6 @@ class SimpleEnvironment:
             self.state -= 1  # Decrease state if action is decrement
         return self.state  # Return updated state
 
-
 ### Define the rule-based agent class
 class RuleBasedAgent:
     def __init__(self):
@@ -82,7 +82,6 @@ class RuleBasedAgent:
         if state < 5:
             return 'increment'  # Choose to increment if state is below threshold
         return 'decrement'  # Otherwise, choose to decrement
-
 
 ### Run agent-environment interaction loop
 env = SimpleEnvironment()      # Create environment instance
