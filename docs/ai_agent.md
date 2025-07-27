@@ -7,7 +7,7 @@ _Demonstrates a minimal agent-environment loop with rule-based action selection.
 - This example shows how an agent can interact with a simple environment using a fixed rule.
 
 ## Step‑by‑step walk‑through
-### 1. Step 1: Define the environment
+Step 1: Define the environment
 ```python
 class SimpleEnvironment:
     def __init__(self):
@@ -23,7 +23,7 @@ class SimpleEnvironment:
 
 ```
 
-### 2. Step 2: Define the agent
+Step 2: Define the agent
 ```python
 class RuleBasedAgent:
     def __init__(self):
@@ -38,7 +38,7 @@ class RuleBasedAgent:
 
 ```
 
-### 3. Step 3: Run the agent-environment loop
+Step 3: Run the agent-environment loop
 ```python
 env = SimpleEnvironment()  # Create environment instance
 agent = RuleBasedAgent()   # Create agent instance

@@ -129,9 +129,9 @@ def build_doc(sample: pathlib.Path, in_root: pathlib.Path, out_root: pathlib.Pat
         summary_md = ("\n".join(summary_lines) + "\n") if summary_lines else ""
         snippet = "\n".join(code_lines)
         step_md.append(
-            f"### {idx}.\u00A0{hdr}\n" +
-            (f"{summary_md}\n" if summary_md else "") +
-            (f"```python\n{snippet}\n```\n" if snippet.strip() else "")
+            f"Step {idx}: {hdr}\n"
+            + (f"{summary_md}\n" if summary_md else "")
+            + (f"```python\n{snippet}\n```\n" if snippet.strip() else "")
         )
 
     md = MD_TEMPLATE.format(

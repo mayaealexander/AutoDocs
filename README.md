@@ -2,6 +2,8 @@
 
 **Documentation automation for SDK samples.**
 
+> **Note:** This version of AutoDocs is tailored for use with Azure, leveraging Azure OpenAI and Azure Identity for authentication and LLM access. Support for other LLM providers may be added in the future.
+
 Welcome to **AutoDocs** — the easiest way to automate descriptive comments and documentation for your code samples.
 
 As developers, we all know the pain of writing clear comments and documentation after the fun part of coding is done. AutoDocs helps you skip the grunt work by using an LLM (Large Language Model) to auto-generate meaningful comments and markdown docs for your code.
