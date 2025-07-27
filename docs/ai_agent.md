@@ -1,56 +1,56 @@
 <!-- AUTO‑GENERATED doc for ai_agent.py -->
-# Minimal Rule-Based Agent and Environment Example
+# Simple Rule-Based Agent and Environment Example
 
-_Demonstrates a simple agent-environment interaction loop in Python._
+_Demonstrates a minimal agent-environment interaction loop in Python._
 
 
-- This example shows a basic agent that increments or decrements state based on a threshold.
+- This example shows how an agent can interact with an environment using simple rule-based logic.
 
 ## Step‑by‑step walk‑through
-### Step 1: Define a simple environment with integer state
-Initialize state to zero Increase state by one if action is increment Decrease state by one if action is decrement Return updated state.
+### Step 1: Define the environment class
+This step defines the environment class.
 
 ```python
 class SimpleEnvironment:
     def __init__(self):
-        self.state = 0
+        self.state = 0  # Initialize state to zero
 
     def step(self, action):
         if action == 'increment':
-            self.state += 1
+            self.state += 1  # Increase state if action is 'increment'
         elif action == 'decrement':
-            self.state -= 1
-        return self.state
+            self.state -= 1  # Decrease state if action is 'decrement'
+        return self.state  # Return the updated state
 
 ```
 
-### Step 2: Define a rule-based agent that selects actions based on state
-No initialization needed for this agent Choose increment if state is below threshold Choose decrement if state is at or above threshold.
+### Step 2: Define the rule-based agent class
+This step defines the rule-based agent class.
 
 ```python
 class RuleBasedAgent:
     def __init__(self):
-        pass
+        pass  # No initialization needed for this agent
 
     def select_action(self, state):
         if state < 5:
-            return 'increment'
+            return 'increment'  # Choose to increment if state is less than 5
         else:
-            return 'decrement'
+            return 'decrement'  # Otherwise, choose to decrement
 
 ```
 
-### Step 3: Instantiate environment and agent, then run interaction loop
-Create environment instance Create agent instance Agent chooses action based on current state Environment updates state based on action Display step, action, and state.
+### Step 3: Run the agent-environment interaction loop
+This step runs the agent-environment interaction loop.
 
 ```python
-env = SimpleEnvironment()
-agent = RuleBasedAgent()
+env = SimpleEnvironment()  # Create an instance of the environment
+agent = RuleBasedAgent()   # Create an instance of the agent
 
 for step in range(10): 
-    action = agent.select_action(env.state)
-    new_state = env.step(action)
-    print(f"Step {step+1}: Action={action}, State={new_state}")
+    action = agent.select_action(env.state)  # Agent selects an action based on current state
+    new_state = env.step(action)             # Environment updates state based on action
+    print(f"Step {step+1}: Action={action}, State={new_state}")  # Output the current step, action, and state
 ```
 
 
@@ -62,37 +62,40 @@ for step in range(10):
 
 ```python
 
-### Define a simple environment with integer state
+### Define the environment class
+# DOC_STEP_SUMMARY: This step defines a simple environment with a mutable integer state and a method to update it based on actions.
 class SimpleEnvironment:
     def __init__(self):
         self.state = 0  # Initialize state to zero
 
     def step(self, action):
         if action == 'increment':
-            self.state += 1  # Increase state by one if action is increment
+            self.state += 1  # Increase state if action is 'increment'
         elif action == 'decrement':
-            self.state -= 1  # Decrease state by one if action is decrement
-        return self.state  # Return updated state
+            self.state -= 1  # Decrease state if action is 'decrement'
+        return self.state  # Return the updated state
 
-### Define a rule-based agent that selects actions based on state
+### Define the rule-based agent class
+# DOC_STEP_SUMMARY: This step creates a rule-based agent that decides whether to increment or decrement the state based on its value.
 class RuleBasedAgent:
     def __init__(self):
         pass  # No initialization needed for this agent
 
     def select_action(self, state):
         if state < 5:
-            return 'increment'  # Choose increment if state is below threshold
+            return 'increment'  # Choose to increment if state is less than 5
         else:
-            return 'decrement'  # Choose decrement if state is at or above threshold
+            return 'decrement'  # Otherwise, choose to decrement
 
-### Instantiate environment and agent, then run interaction loop
-env = SimpleEnvironment()  # Create environment instance
-agent = RuleBasedAgent()   # Create agent instance
+### Run the agent-environment interaction loop
+# DOC_STEP_SUMMARY: This step runs a loop where the agent selects actions and the environment updates its state, printing results at each step.
+env = SimpleEnvironment()  # Create an instance of the environment
+agent = RuleBasedAgent()   # Create an instance of the agent
 
 for step in range(10): 
-    action = agent.select_action(env.state)  # Agent chooses action based on current state
+    action = agent.select_action(env.state)  # Agent selects an action based on current state
     new_state = env.step(action)             # Environment updates state based on action
-    print(f"Step {step+1}: Action={action}, State={new_state}")  # Display step, action, and state
+    print(f"Step {step+1}: Action={action}, State={new_state}")  # Output the current step, action, and state
 ```
 </details>
 Last updated: 2025-07-27
