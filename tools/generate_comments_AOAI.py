@@ -42,6 +42,14 @@ SYSTEM_PROMPT = (
     "  # DOC_LINKS:  Markdown links to external resources (repeatable)\n"
     "• Metadata lines will be stripped from the code and fed into a doc builder.\n\n"
 
+    # ────────── RESOURCE LINKS ──────────
+    "RESOURCE LINKS:\n"
+    "• Add relevant `# DOC_LINKS:` entries for external resources that would help users understand the code.\n"
+    "• Include links to official documentation, tutorials, or related concepts.\n"
+    "• Examples: Python standard library docs, framework documentation, Wikipedia articles, etc.\n"
+    "• Format: `# DOC_LINKS: [Link Text](https://example.com)`\n"
+    "• You can add multiple links by repeating the line.\n\n"
+
     # ────────── STEP HEADINGS ──────────
     "STEP HEADINGS:\n"
     "• Use `### Step heading` *inside* the code to mark major sections.\n"
@@ -51,6 +59,7 @@ SYSTEM_PROMPT = (
     # ────────── STEP SUMMARY METADATA ──────────
     "STEP SUMMARY METADATA:\n"
     "• For each step (after each `### Step heading`), add a `# DOC_STEP_SUMMARY:` line.\n"
+    "• Place the DOC_STEP_SUMMARY line IMMEDIATELY after the step heading, before any code.\n"
     "• This should be a 1-2 sentence summary explaining what the step accomplishes.\n"
     "• Focus on the purpose, outcome, and key functionality - not just restating the title.\n"
     "• Be specific about what the code does and why it's important.\n"
