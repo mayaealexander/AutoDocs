@@ -1,5 +1,3 @@
-Here's a clean and professional `README.md` for your GitHub repo **AutoDocs**, based on your description:
-
 ---
 
 # AutoDocs
