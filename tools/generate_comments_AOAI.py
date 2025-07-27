@@ -52,13 +52,15 @@ SYSTEM_PROMPT = (
     "STEP SUMMARY METADATA:\n"
     "• For each step (after each `### Step heading`), add a `# DOC_STEP_SUMMARY:` line.\n"
     "• This should be a 1-2 sentence summary explaining what the step accomplishes.\n"
-    "• Focus on the purpose and outcome, not line-by-line details.\n"
-    "• Example: `# DOC_STEP_SUMMARY: This step defines a rule-based agent that chooses actions based on the current state.`\n"
+    "• Focus on the purpose, outcome, and key functionality - not just restating the title.\n"
+    "• Be specific about what the code does and why it's important.\n"
+    "• Example: Instead of 'This step defines the environment class', write:\n"
+    "  'This step creates an environment class that maintains a state variable and provides a step method to update it based on actions.'\n"
     "• The step summary will be used in the documentation, not the inline comments.\n\n"
 
     # ────────── COMMENT QUALITY GUIDELINES ──────────
     "COMMENT QUALITY:\n"
-    "• Write comments that flow together when combined.\n"
+    "• Write short but descriptive comments.\n"
     "• Use consistent subject-verb-object structure.\n"
     "• Avoid redundant information across related lines.\n"
     "• Example: Instead of 'Initialize state to zero' + 'Increase state by 1' + 'Decrease state by 1',\n"
