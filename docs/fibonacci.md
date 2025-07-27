@@ -4,41 +4,46 @@
 _Simple function to compute the first n Fibonacci numbers._
 
 
-- This implementation uses a list to store the sequence and is efficient for small n.
+- This implementation uses a list to store the sequence and iteratively builds it up.
 
 ## Step‑by‑step walk‑through
-### 1. Step 1: Define the Fibonacci function
+### Step 1: Define the Fibonacci sequence generator
+This step defines a function that returns the first n numbers of the Fibonacci sequence as a list.
+
 ```python
 def fibonacci(n):
-    seq = [0, 1]  # Initialize list with first two Fibonacci numbers
-    for i in range(2, n):  # Loop to generate remaining numbers up to n
-        seq.append(seq[-1] + seq[-2])  # Append sum of last two numbers
-    return seq[:n]  # Return first n numbers (handles n < 2)
+    seq = [0, 1]
+    for i in range(2, n):
+        seq.append(seq[-1] + seq[-2])
+    return seq[:n]
 
 ```
 
-### 2. Step 2: Print the first 10 Fibonacci numbers
+### Step 2: Print the first 10 Fibonacci numbers
+This step demonstrates the function by printing the first 10 Fibonacci numbers.
+
 ```python
-print(fibonacci(10))  # Output: [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
+print(fibonacci(10))
 ```
 
 
 ## Resources
-* [Fibonacci sequence - Wikipedia](https://en.wikipedia.org/wiki/Fibonacci_number)
+* [Fibonacci number - Wikipedia](https://en.wikipedia.org/wiki/Fibonacci_number)
+* [Python Lists](https://docs.python.org/3/tutorial/datastructures.html#more-on-lists)
 
 <details><summary>Full source</summary>
 
 ```python
 
-### Step 1: Define the Fibonacci function
+### Define the Fibonacci sequence generator
 def fibonacci(n):
-    seq = [0, 1]  # Initialize list with first two Fibonacci numbers
-    for i in range(2, n):  # Loop to generate remaining numbers up to n
-        seq.append(seq[-1] + seq[-2])  # Append sum of last two numbers
-    return seq[:n]  # Return first n numbers (handles n < 2)
+    seq = [0, 1]  # Start sequence with first two Fibonacci numbers
+    for i in range(2, n):  # Generate remaining numbers up to n
+        seq.append(seq[-1] + seq[-2])  # Add sum of last two numbers to sequence
+    return seq[:n]  # Return sequence truncated to n elements
 
-### Step 2: Print the first 10 Fibonacci numbers
+### Print the first 10 Fibonacci numbers
 print(fibonacci(10))  # Output: [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
 ```
 </details>
-Last updated: 2025-07-21
+Last updated: 2025-07-27
