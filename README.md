@@ -1,5 +1,3 @@
----
-
 # AutoDocs
 
 **Documentation automation for SDK samples.**
@@ -58,5 +56,3 @@ AutoDocs relies on AI-generated output, so you should still review and validate 
 ## 📄 License
 
 MIT
-
----
