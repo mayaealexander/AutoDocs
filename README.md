@@ -2,57 +2,106 @@
 
 **Documentation automation for SDK samples.**
 
-> **Note:** This version of AutoDocs is tailored for use with Azure, leveraging Azure OpenAI and Azure Identity for authentication and LLM access. Support for other LLM providers may be added in the future.
+> **Note:** This version of AutoDocs is tailored for use with **Azure**, leveraging **Azure OpenAI** and **Azure Identity (OIDC to Entra ID)** for authentication and LLM access. Support for other LLM providers may be added in the future.
 
 Welcome to **AutoDocs** — the easiest way to automate descriptive comments and documentation for your code samples.
 
 As developers, we all know the pain of writing clear comments and documentation after the fun part of coding is done. AutoDocs helps you skip the grunt work by using an LLM (Large Language Model) to auto-generate meaningful comments and markdown docs for your code.
 
+---
+
 ## ✨ What It Does
 
 AutoDocs is a GitHub Action that:
 
-* Analyzes Python files in your `samples/` directory when changes are pushed to `main`
-* Adds descriptive inline comments and step summaries using Azure OpenAI
-* Creates or updates markdown documentation in a `docs/` folder
-* Optionally creates pull requests with the generated changes
+- Analyzes Python files in your `samples/` directory when changes are pushed to `main`
+- Adds **concise inline `#` comments** and **step summaries** using Azure OpenAI
+- Creates or updates **Markdown documentation** in your `docs/` folder
+- Optionally creates a **pull request** with the generated changes
+- Uses **GitHub OIDC → Entra ID** (no API keys in your repo)
 
-## 🚀 Getting Started
+---
 
-1. **Drop the GitHub Action into your repo**
+## 🚀 Quick Start (as a reusable GitHub Action)
 
-   Copy the `comment-and-doc.yml` file into your `.github/workflows/` directory.
+Most users will consume AutoDocs as a **reusable action** in their own repo.
 
-2. **Configure Azure OpenAI secrets**
+### 1) Prerequisites (one-time)
 
-   In your GitHub repo settings, add these repository secrets:
-   * `AZURE_OPENAI_ENDPOINT` - Your Azure OpenAI endpoint URL
-   * `AZURE_OPENAI_DEPLOYMENT_NAME` - Your Azure OpenAI deployment name
-   * `AZURE_TENANT_ID` - Your Azure tenant ID
-   * `AZURE_CLIENT_ID` - Your Azure client ID
+1. **Azure OpenAI resource + model deployment**
+   - You have an Azure OpenAI resource (e.g., `https://YOUR-RESOURCE.openai.azure.com/`).
+   - You’ve deployed a model (e.g., deployment name: `gpt-4.1`).
 
-3. **Add your Python samples**
+2. **Entra ID app registration for GitHub OIDC**
+   - In **Microsoft Entra ID → App registrations → New registration**.
+   - Save your **Application (client) ID** and **Directory (tenant) ID**.
 
-   Place your Python sample files in a `samples/` directory in your repository.
+3. **Add a GitHub federated credential to your app**
+   - App → **Certificates & secrets → Federated credentials → Add credential**.
+   - **Provider:** GitHub.
+   - Scope it to your repo and branch (usually `main`).
+   - This lets GitHub Actions exchange its **OIDC token** for an **Entra access token**.
 
-4. **Push to main**
+4. **Grant the app access to Azure OpenAI**
+   - Azure Portal → your **Azure OpenAI** resource → **Access control (IAM)** → **Add role assignment**.
+   - Assign a role that can invoke the endpoint (e.g., **Cognitive Services User** or **Contributor**).
 
-   Every time you push Python files to the `main` branch in the `samples/` directory, AutoDocs will:
+5. **Add GitHub Actions *Variables*** (repo settings)
+   - Repo → **Settings → Secrets and variables → Actions → Variables → New variable**:
+     - `AZURE_OPENAI_ENDPOINT` → `https://YOUR-RESOURCE.openai.azure.com/`
+     - `AZURE_OPENAI_DEPLOYMENT_NAME` → your deployment name (e.g., `gpt-4.1`)
+     - `AZURE_TENANT_ID` → your Entra **Directory (tenant) ID**
+     - `AZURE_CLIENT_ID` → your app’s **Application (client) ID**
+   > You can use **Secrets** instead of **Variables** if your org policy requires it; the included workflow defaults to `vars.*`.
 
-   * Scan the changed Python files
-   * Generate inline comments and step summaries using Azure OpenAI
-   * Create markdown documentation in the `docs/` folder
-   * Commit the changes back to your repository
-   * Optionally create a pull request with the changes
+6. **Allow Actions to write**
+   - Repo → **Settings → Actions → General → Workflow permissions** → **Read and write**.
 
-## 🛠 Configuration
+### 2) Add a small workflow in your repo
 
-The workflow is configured to:
+Create **`.github/workflows/autodocs.yml`** in your repository:
 
-* **Trigger on**: Changes to `samples/**/*.py` files pushed to `main`
-* **Skip if**: The commit message contains `[skip comment]`
-* **Output**: Markdown docs in `docs/` folder with step-by-step walkthroughs
-* **Features**: Link validation, clean code blocks, and comprehensive documentation
+```yaml
+name: AutoDocs (Azure)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'samples/**/*.py'   # adjust if your samples live elsewhere
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write   # required for OIDC → Entra ID
+
+jobs:
+  autodocs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout your repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Call the AutoDocs composite action (this repository)
+      - name: Run AutoDocs
+        uses: mayaealexander/AutoDocs@v1
+        with:
+          # Required: your Azure/OpenAI OIDC settings (usually from repo Variables)
+          azure-openai-endpoint:        ${{ vars.AZURE_OPENAI_ENDPOINT }}
+          azure-openai-deployment-name: ${{ vars.AZURE_OPENAI_DEPLOYMENT_NAME }}
+          azure-tenant-id:              ${{ vars.AZURE_TENANT_ID }}
+          azure-client-id:              ${{ vars.AZURE_CLIENT_ID }}
+
+          # Optional overrides (defaults shown):
+          sample-glob:        'samples/**/*.py'
+          working-directory:  '.'
+          commenter-script:   'tools/generate_comments_AOAI.py'
+          doc-builder-script: 'tools/doc_builder.py'
+          docs-output-dir:    'docs'
+          pr-branch:          'bot/auto-comment'
+          create-pr:          'true'   # set to 'false' if your org blocks
 
 ## 🔧 Customization
 

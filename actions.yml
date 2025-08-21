@@ -1,0 +1,194 @@
+name: "AutoDocs (Azure OpenAI): Comment & Doc for Python samples"
+description: "Adds concise inline comments to Python samples with Azure OpenAI (OIDC) and generates Markdown docs."
+branding:
+  icon: "book"
+  color: "blue"
+
+# Composite action so callers can just `uses: owner/repo@vX`
+runs:
+  using: "composite"
+  steps:
+    # 0) Sanity check: ensure the repo is checked out
+    - name: Verify repository is checked out
+      shell: bash
+      run: |
+        git rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+          echo "::error::This action requires the repository to be checked out. Add 'uses: actions/checkout@v4' before this step."
+          exit 1
+        }
+
+    # 1) Azure login via OIDC (needs id-token: write in caller workflow)
+    - name: Azure login (OIDC)
+      uses: azure/login@v2
+      with:
+        tenant-id: ${{ inputs.azure-tenant-id }}
+        client-id: ${{ inputs.azure-client-id }}
+        allow-no-subscriptions: true
+
+    # 2) Python + deps
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: pip
+        cache-dependency-path: ${{ inputs.requirements-path }}
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        if [ -f "${{ inputs.requirements-path }}" ]; then
+          echo "Installing from ${{ inputs.requirements-path }}"
+          pip install -r "${{ inputs.requirements-path }}"
+        else
+          echo "No requirements file found; installing defaults"
+          pip install "openai" "azure-identity"
+        fi
+
+    # 3) Build list of files to process
+    #    If sample-paths is provided (manual run), use it.
+    #    Else compute diff vs parent commit for the provided glob.
+    - name: Build list of changed samples
+      id: list
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.sample-paths }}" ]; then
+          echo "${{ inputs.sample-paths }}" | tr ',' '\n' > /tmp/updated_files.txt
+        else
+          git diff --name-only "$GITHUB_SHA" "$GITHUB_SHA^" -- ":(glob)${{ inputs.sample-glob }}" > /tmp/updated_files.txt || true
+        fi
+        echo "Files to comment:"
+        cat /tmp/updated_files.txt || true
+
+    # 4) Run the commenter (Azure OpenAI via OIDC token)
+    - name: Run AI commenting script
+      shell: bash
+      run: |
+        if [ -s /tmp/updated_files.txt ]; then
+          python "${{ inputs.commenter-script }}" /tmp/updated_files.txt "${{ inputs.working-directory }}"
+        else
+          echo "No matching Python files found. Skipping commenter."
+        fi
+      env:
+        AZURE_OPENAI_ENDPOINT:        ${{ inputs.azure-openai-endpoint }}
+        AZURE_OPENAI_DEPLOYMENT_NAME: ${{ inputs.azure-openai-deployment-name }}
+        AZURE_TENANT_ID:              ${{ inputs.azure-tenant-id }}
+        AZURE_CLIENT_ID:              ${{ inputs.azure-client-id }}
+
+    # 5) Build Markdown docs
+    - name: Build markdown docs
+      shell: bash
+      run: |
+        if [ -s /tmp/updated_files.txt ]; then
+          python "${{ inputs.doc-builder-script }}" --list-file /tmp/updated_files.txt --input-root "${{ inputs.samples-root }}" --output-root "${{ inputs.docs-root }}"
+        else
+          echo "No updated files, skipping doc builder."
+        fi
+
+    # 6) Commit changes
+    - name: Commit changes
+      shell: bash
+      run: |
+        NAME="${{ inputs.commit-user-name }}"
+        EMAIL="${{ inputs.commit-user-email }}"
+        if [ -z "$NAME" ]; then NAME="AI Comment Assistant"; fi
+        if [ -z "$EMAIL" ]; then EMAIL="${{ github.actor }}@users.noreply.github.com"; fi
+
+        git config user.name  "$NAME"
+        git config user.email "$EMAIL"
+
+        git add -u
+        git add "${{ inputs.docs-root }}/" || true
+
+        if git diff --cached --quiet; then
+          echo "No changes to commit."
+        else
+          git commit -m "${{ inputs.commit-message }}"
+        fi
+
+    # 7) Create or update a PR (optional)
+    - name: Create or update bot PR
+      if: ${{ inputs.create-pr == 'true' }}
+      id: cpr
+      uses: peter-evans/create-pull-request@v6
+      with:
+        branch:          ${{ inputs.pr-branch }}
+        title:           ${{ inputs.pr-title }}
+        body:            ${{ inputs.pr-body }}
+        commit-message:  ${{ inputs.commit-message }}
+        delete-branch:   true
+        token:           ${{ inputs.github-token || github.token }}
+
+outputs:
+  pull-request-url:
+    description: "URL of the created/updated pull request (if any)"
+    value: ${{ steps.cpr.outputs.pull-request-url }}
+
+inputs:
+  # Azure OIDC + AOAI config
+  azure-tenant-id:
+    description: "Entra Tenant ID that trusts this repo via OIDC"
+    required: true
+  azure-client-id:
+    description: "App Registration (client) ID with federated credential for this repo"
+    required: true
+  azure-openai-endpoint:
+    description: "Azure OpenAI endpoint, e.g. https://<name>.openai.azure.com/"
+    required: true
+  azure-openai-deployment-name:
+    description: "Azure OpenAI deployment name (e.g. gpt-4.1)"
+    required: true
+
+  # Files & scripts
+  samples-root:
+    description: "Root folder for samples"
+    default: "samples"
+  docs-root:
+    description: "Root folder for generated docs"
+    default: "docs"
+  sample-glob:
+    description: "Glob of Python samples to watch"
+    default: "samples/**/*.py"
+  sample-paths:
+    description: "Comma-separated paths for manual runs (overrides diff)"
+    required: false
+  commenter-script:
+    description: "Path to the commenting script"
+    default: "tools/generate_comments_AOAI.py"
+  doc-builder-script:
+    description: "Path to the doc builder script"
+    default: "tools/doc_builder.py"
+  requirements-path:
+    description: "Path to requirements.txt"
+    default: "tools/requirements.txt"
+  working-directory:
+    description: "Repo root for scripts (usually '.')"
+    default: "."
+
+  # Python & commit/PR behavior
+  python-version:
+    description: "Python version"
+    default: "3.10"
+  commit-user-name:
+    description: "Git commit author name"
+    required: false
+  commit-user-email:
+    description: "Git commit author email"
+    required: false
+  commit-message:
+    description: "Commit message"
+    default: "Add inline comments & docs [skip comment]"
+  create-pr:
+    description: "Open/update a PR with the changes"
+    default: "true"
+  pr-branch:
+    description: "Name of the bot branch"
+    default: "bot/auto-comment"
+  pr-title:
+    description: "PR title"
+    default: "Add inline comments and docs via AI assistant"
+  pr-body:
+    description: "PR body"
+    default: "Auto-generated; please review"
+  github-token:
+    description: "GitHub token to use for PR creation (defaults to GITHUB_TOKEN)"
+    required: false
