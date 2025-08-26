@@ -4,125 +4,6 @@ branding:
   icon: "book"
   color: "blue"
 
-# Composite action so callers can just `uses: owner/repo@vX`
-runs:
-  using: "composite"
-  steps:
-    # 0) Sanity check: ensure the repo is checked out
-    - name: Verify repository is checked out
-      shell: bash
-      run: |
-        git rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
-          echo "::error::This action requires the repository to be checked out. Add 'uses: actions/checkout@v4' before this step."
-          exit 1
-        }
-
-    # 1) Azure login via OIDC (needs id-token: write in caller workflow)
-    - name: Azure login (OIDC)
-      uses: azure/login@v2
-      with:
-        tenant-id: ${{ inputs.azure-tenant-id }}
-        client-id: ${{ inputs.azure-client-id }}
-        allow-no-subscriptions: true
-
-    # 2) Python + deps
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ inputs.python-version }}
-        cache: pip
-        cache-dependency-path: ${{ inputs.requirements-path }}
-
-    - name: Install dependencies
-      shell: bash
-      run: |
-        if [ -f "${{ inputs.requirements-path }}" ]; then
-          echo "Installing from ${{ inputs.requirements-path }}"
-          pip install -r "${{ inputs.requirements-path }}"
-        else
-          echo "No requirements file found; installing defaults"
-          pip install "openai" "azure-identity"
-        fi
-
-    # 3) Build list of files to process
-    #    If sample-paths is provided (manual run), use it.
-    #    Else compute diff vs parent commit for the provided glob.
-    - name: Build list of changed samples
-      id: list
-      shell: bash
-      run: |
-        if [ -n "${{ inputs.sample-paths }}" ]; then
-          echo "${{ inputs.sample-paths }}" | tr ',' '\n' > /tmp/updated_files.txt
-        else
-          git diff --name-only "$GITHUB_SHA" "$GITHUB_SHA^" -- ":(glob)${{ inputs.sample-glob }}" > /tmp/updated_files.txt || true
-        fi
-        echo "Files to comment:"
-        cat /tmp/updated_files.txt || true
-
-    # 4) Run the commenter (Azure OpenAI via OIDC token)
-    - name: Run AI commenting script
-      shell: bash
-      run: |
-        if [ -s /tmp/updated_files.txt ]; then
-          python "${{ inputs.commenter-script }}" /tmp/updated_files.txt "${{ inputs.working-directory }}"
-        else
-          echo "No matching Python files found. Skipping commenter."
-        fi
-      env:
-        AZURE_OPENAI_ENDPOINT:        ${{ inputs.azure-openai-endpoint }}
-        AZURE_OPENAI_DEPLOYMENT_NAME: ${{ inputs.azure-openai-deployment-name }}
-        AZURE_TENANT_ID:              ${{ inputs.azure-tenant-id }}
-        AZURE_CLIENT_ID:              ${{ inputs.azure-client-id }}
-
-    # 5) Build Markdown docs
-    - name: Build markdown docs
-      shell: bash
-      run: |
-        if [ -s /tmp/updated_files.txt ]; then
-          python "${{ inputs.doc-builder-script }}" --list-file /tmp/updated_files.txt --input-root "${{ inputs.samples-root }}" --output-root "${{ inputs.docs-root }}"
-        else
-          echo "No updated files, skipping doc builder."
-        fi
-
-    # 6) Commit changes
-    - name: Commit changes
-      shell: bash
-      run: |
-        NAME="${{ inputs.commit-user-name }}"
-        EMAIL="${{ inputs.commit-user-email }}"
-        if [ -z "$NAME" ]; then NAME="AI Comment Assistant"; fi
-        if [ -z "$EMAIL" ]; then EMAIL="${{ github.actor }}@users.noreply.github.com"; fi
-
-        git config user.name  "$NAME"
-        git config user.email "$EMAIL"
-
-        git add -u
-        git add "${{ inputs.docs-root }}/" || true
-
-        if git diff --cached --quiet; then
-          echo "No changes to commit."
-        else
-          git commit -m "${{ inputs.commit-message }}"
-        fi
-
-    # 7) Create or update a PR (optional)
-    - name: Create or update bot PR
-      if: ${{ inputs.create-pr == 'true' }}
-      id: cpr
-      uses: peter-evans/create-pull-request@v6
-      with:
-        branch:          ${{ inputs.pr-branch }}
-        title:           ${{ inputs.pr-title }}
-        body:            ${{ inputs.pr-body }}
-        commit-message:  ${{ inputs.commit-message }}
-        delete-branch:   true
-        token:           ${{ inputs.github-token || github.token }}
-
-outputs:
-  pull-request-url:
-    description: "URL of the created/updated pull request (if any)"
-    value: ${{ steps.cpr.outputs.pull-request-url }}
-
 inputs:
   # Azure OIDC + AOAI config
   azure-tenant-id:
@@ -192,3 +73,132 @@ inputs:
   github-token:
     description: "GitHub token to use for PR creation (defaults to GITHUB_TOKEN)"
     required: false
+# Composite action so callers can just `uses: owner/repo@vX`
+runs:
+  using: "composite"
+  steps:
+    # 0) Sanity check: ensure the repo is checked out
+    - name: Verify repository is checked out
+      shell: bash
+      run: |
+        git rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+          echo "::error::This action requires the repository to be checked out. Add 'uses: actions/checkout@v4' before this step."
+          exit 1
+        }
+
+    # 1) Azure login via OIDC (needs id-token: write in caller workflow)
+    - name: Azure login (OIDC)
+      uses: azure/login@v2
+      with:
+        tenant-id: ${{ inputs.azure-tenant-id }}
+        client-id: ${{ inputs.azure-client-id }}
+        allow-no-subscriptions: true
+
+    # 2) Python + deps
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: pip
+        cache-dependency-path: ${{ inputs.requirements-path }}
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        set -euo pipefail
+        REQ_IN="${{ inputs.requirements-path }}"
+        REQ_IN_ACTION="${{ github.action_path }}/${{ inputs.requirements-path }}"
+
+        if [ -f "$REQ_IN" ]; then
+          echo "Installing from repo requirements: $REQ_IN"
+          pip install -r "$REQ_IN"
+        elif [ -f "$REQ_IN_ACTION" ]; then
+          echo "Installing from action-bundled requirements: $REQ_IN_ACTION"
+          pip install -r "$REQ_IN_ACTION"
+        else
+          echo "No requirements file found; installing safe defaults"
+          pip install openai azure-identity requests
+        fi
+
+    # 3) Build list of files to process
+    #    If sample-paths is provided (manual run), use it.
+    #    Else compute diff vs parent commit for the provided glob.
+    - name: Build list of changed samples
+      id: list
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.sample-paths }}" ]; then
+          echo "${{ inputs.sample-paths }}" | tr ',' '\n' > /tmp/updated_files.txt
+        else
+          git diff --name-only "$GITHUB_SHA" "$GITHUB_SHA^" -- ":(glob)${{ inputs.sample-glob }}" > /tmp/updated_files.txt || true
+        fi
+        echo "Files to comment:"
+        cat /tmp/updated_files.txt || true
+
+    # 4) Run the commenter (Azure OpenAI via OIDC token)
+    - name: Run AI commenting script
+      shell: bash
+      run: |
+        if [ -s /tmp/updated_files.txt ]; then
+          python "${{ github.action_path }}/${{ inputs.commenter-script }}" /tmp/updated_files.txt "${{ inputs.working-directory }}"
+        else
+          echo "No matching Python files found. Skipping commenter."
+        fi
+      env:
+        AZURE_OPENAI_ENDPOINT:        ${{ inputs.azure-openai-endpoint }}
+        AZURE_OPENAI_DEPLOYMENT_NAME: ${{ inputs.azure-openai-deployment-name }}
+        AZURE_TENANT_ID:              ${{ inputs.azure-tenant-id }}
+        AZURE_CLIENT_ID:              ${{ inputs.azure-client-id }}
+
+    # 5) Build Markdown docs
+    - name: Build markdown docs
+      shell: bash
+      run: |
+        if [ -s /tmp/updated_files.txt ]; then
+          python "${{ github.action_path }}/${{ inputs.doc-builder-script }}" --list-file /tmp/updated_files.txt --input-root "${{ inputs.samples-root }}" --output-root "${{ inputs.docs-root }}"
+        else
+          echo "No updated files, skipping doc builder."
+        fi
+
+    # 6) Commit changes
+    - name: Commit changes
+      shell: bash
+      run: |
+        NAME="${{ inputs.commit-user-name }}"
+        EMAIL="${{ inputs.commit-user-email }}"
+        if [ -z "$NAME" ]; then NAME="AI Comment Assistant"; fi
+        if [ -z "$EMAIL" ]; then EMAIL="${{ github.actor }}@users.noreply.github.com"; fi
+
+        git config user.name  "$NAME"
+        git config user.email "$EMAIL"
+
+        git add -u
+        git add "${{ inputs.docs-root }}/" || true
+
+        if git diff --cached --quiet; then
+          echo "No changes to commit."
+        else
+          git commit -m "${{ inputs.commit-message }}"
+        fi
+
+    # 7) Create or update a PR (optional)
+    - name: Create or update bot PR
+      if: ${{ inputs.create-pr == 'true' }}
+      id: cpr
+      uses: peter-evans/create-pull-request@v6
+      with:
+        branch:          ${{ inputs.pr-branch }}
+        title:           ${{ inputs.pr-title }}
+        body:            ${{ inputs.pr-body }}
+        commit-message:  ${{ inputs.commit-message }}
+        delete-branch:   true
+        # Sensible identity defaults:
+        committer:       ${{ inputs.commit-user-name || 'github-actions[bot]' }} <${{ inputs.commit-user-email || '41898282+github-actions[bot]@users.noreply.github.com' }}>
+        author:          ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
+        # Use caller-provided token if set; otherwise GITHUB_TOKEN
+        token:           ${{ inputs.github-token || github.token }}
+
+outputs:
+  pull-request-url:
+    description: "URL of the created/updated pull request (if any)"
+    value: ${{ steps.cpr.outputs.pull-request-url }}
