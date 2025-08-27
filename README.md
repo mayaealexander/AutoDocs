@@ -55,7 +55,8 @@ AutoDocs is a GitHub Action that:
 
 7. **Call Action into any Workflow**
    - Repos call this action with *mayaealexander/AutoDocs@v1* inside your own workflow
-   - The calling workflow should include the following permissions:
+   - An example "comment-and-doc.yml" workflow can be found in *mayaealexander/AutoDocs/example-wf*
+   - Any calling workflow should include the following permissions:
       - contents: write
       - pull-requests: write
       - id-token: write
